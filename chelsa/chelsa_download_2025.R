@@ -1,5 +1,5 @@
 
-dest_dir <- "D:/A_DATA/CHELSA/MONTHLY_1980_2022/PR"
+dest_dir <- "D:/A_DATA/CHELSA/MONTHLY_1980_2022/TMAX"
 if (!dir.exists(dest_dir)) {
   dir.create(dest_dir, recursive = TRUE)
 }
@@ -7,7 +7,7 @@ if (!dir.exists(dest_dir)) {
 
 años <- 1980:2021
 meses <- sprintf("%02d", 1:12)
-variable <- "pr"
+variable <- "tasmax"
 version <- "V.2.1"
 
 for (anio in años) {

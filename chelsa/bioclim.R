@@ -16,7 +16,7 @@ if (!dir.exists(out_clim_path)) dir.create(out_clim_path, recursive = TRUE)
 # Cargar límite original (LAEA) y proyectar a WGS84 para el recorte eficiente
 iberia_laea  <- vect(shp_path)
 # Usamos un CRS estándar WGS84 (el de CHELSA)
-wgs84_crs    <- "EPSG:4324"
+wgs84_crs    <- "EPSG:4326"
 iberia_wgs84 <- project(iberia_laea, wgs84_crs)
 
 # =========================================================================
