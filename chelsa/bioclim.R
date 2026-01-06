@@ -88,15 +88,32 @@ biovars_terra <- function(prec, tmin, tmax, filename = "", ...) {
     }
     p_q <- window_3m(p); t_q <- window_3m(ta) / 3
     res <- rep(NA, 19)
-    res[1]<-mean(ta); res[2]<-mean(tx-tn); res[5]<-max(tx); res[6]<-min(tn)
-    res[7]<-res[5]-res[6]; res[3]<-(res[2]/res[7])*100; res[4]<-sd(ta)*100
-    res[12]<-sum(p); res[13]<-max(p); res[14]<-min(p); res[15]<-(sd(p+1)/mean(p+1))*100
-    res[16]<-max(p_q); res[17]<-min(p_q)
-    idx_wet<-which.max(p_q); res[8]<-t_q[idx_wet]
-    idx_dry<-which.min(p_q); res[9]<-t_q[idx_dry]
-    res[10]<-max(t_q); res[11]<-min(t_q)
-    idx_hot<-which.max(t_q); res[18]<-p_q[idx_hot]
-    idx_cold<-which.min(t_q); res[19]<-p_q[idx_cold]
+    # Temperatura (BIO1 - BIO11)
+    res[1]  <- mean(ta)                          # BIO1: Media Anual
+    res[2]  <- mean(tx - tn)                     # BIO2: Rango Diurno
+    res[5]  <- max(tx)                           # BIO5: Max mes cálido
+    res[6]  <- min(tn)                           # BIO6: Min mes frío
+    res[7]  <- res[5] - res[6]                   # BIO7: Rango Anual
+    res[3]  <- (res[2] / res[7]) * 100           # BIO3: Isotermalidad
+    res[4]  <- sd(ta) * 100                      # BIO4: Estacionalidad Tª
+
+    res[10] <- max(t_q)                          # BIO10: Tª Trim. Cálido
+    res[11] <- min(t_q)                          # BIO11: Tª Trim. Frío
+
+    idx_wet <- which.max(p_q); res[8] <- t_q[idx_wet] # BIO8: Tª Trim. Húmedo
+    idx_dry <- which.min(p_q); res[9] <- t_q[idx_dry] # BIO9: Tª Trim. Seco
+
+    # Precipitación (BIO12 - BIO19)
+    res[12] <- sum(p)                            # BIO12: Prec. Anual
+    res[13] <- max(p)                            # BIO13: Mes más húmedo
+    res[14] <- min(p)                            # BIO14: Mes más seco
+    res[15] <- (sd(p + 1) / (mean(p) + 1)) * 100 # BIO15: Estacionalidad Prec.
+
+    res[16] <- max(p_q)                          # BIO16: Trimestre más húmedo
+    res[17] <- min(p_q)                          # BIO17: Trimestre más seco
+
+    idx_hot  <- which.max(t_q); res[18] <- p_q[idx_hot]  # BIO18: Prec. Trim. Cálido
+    idx_cold <- which.min(t_q); res[19] <- p_q[idx_cold] # BIO19: Prec. Trim. Frío
     return(res)
   }
 
