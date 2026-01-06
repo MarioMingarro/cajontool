@@ -54,11 +54,11 @@ get_climatology_iberia <- function(subfolder, prefix, is_temp = FALSE) {
     m_avg <- mean(s, na.rm = TRUE)
     m_avg <- mask(m_avg, iberia_wgs84) # Aplicar máscara de la costa
 
-    # Ajuste de escala CHELSA (0.1) y Kelvin a Celsius
+
     if (is_temp) {
-      m_avg <- (m_avg * 0.1) - 273.15
+      m_avg <- m_avg - 273.15
     } else {
-      m_avg <- m_avg * 0.1
+      m_avg <- m_avg
     }
 
     # Guardar archivo intermedio
@@ -114,20 +114,39 @@ tmin_clim <- get_climatology_iberia("TMIN", "tmin_clim", is_temp = TRUE)
 
 # B. Calcular 19 Biovars en WGS84
 cat("\n--- Calculando Biovars (Procesamiento en paralelo) ---\n")
-n_cores <- max(1, parallel::detectCores() - 2)
+n_cores <-10
 bioclim_wgs84 <- biovars_terra(
   prec = pr_clim, tmin = tmin_clim, tmax = tmax_clim,
   cores = n_cores,
   wopt = list(datatype = "FLT4S")
 )
 
-# C. Proyectar resultado final a LAEA89 y guardar
-cat("\n--- Proyectando a ETRS89 LAEA y guardando final ---\n")
+# 1. Primero proyectamos el stack completo (más eficiente)
+cat("\n--- Proyectando a ETRS89 LAEA ---")
 bioclim_laea <- project(bioclim_wgs84, crs(iberia_laea), method = "bilinear")
-writeRaster(bioclim_laea, output_final, overwrite = TRUE, wopt = list(datatype = "FLT4S"))
 
-# D. Visualización rápida
-names(bioclim_laea) <- paste0("BIO", 1:19)
-plot(bioclim_laea[[c(1, 12)]], main = c("BIO1 (Temp Media)", "BIO12 (Prec Anual)"))
+# 2. Definimos los nombres de las capas
+nombres_bio <- paste0("BIO", 1:19)
+names(bioclim_laea) <- nombres_bio
 
-cat("\n¡PROCESO FINALIZADO CON ÉXITO!\nArchivo guardado en:", output_final)
+# 3. Guardamos cada capa por separado en un bucle
+cat("\n--- Guardando 19 archivos individuales ---")
+
+# Creamos una carpeta específica para las capas individuales si no existe
+out_indiv_path <- "C:/A_TRABAJO/DATA/CHELSA/BIOCLIMAS_INDIVIDUALES"
+if (!dir.exists(out_indiv_path)) dir.create(out_indiv_path, recursive = TRUE)
+
+for (i in 1:19) {
+  # Construir la ruta de salida para cada BIO
+  file_out <- file.path(out_indiv_path, paste0(nombres_bio[i], ".tif"))
+
+  # Guardar la capa i del stack
+  writeRaster(bioclim_laea[[i]],
+              filename = file_out,
+              overwrite = TRUE,
+              wopt = list(datatype = "FLT4S"))
+
+  cat("\nGuardado:", nombres_bio[i])
+}
+
+cat("\n\n¡PROCESO FINALIZADO! Los 19 archivos están en:", out_indiv_path)
