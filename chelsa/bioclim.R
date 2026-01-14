@@ -7,7 +7,7 @@ library(parallel)
 # --- 1. CONFIGURACIÓN DE RUTAS ---
 base_path     <- "C:/A_TRABAJO/DATA/CHELSA/MONTHLY_1980_2022"
 out_clim_path <- "C:/A_TRABAJO/DATA/CHELSA/CLIMATOLOGIAS_IBERIA"
-shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Europe limits/Iberia_limits.shp"
+shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Iberia_1km_grid_final.shp"
 output_final  <- "C:/A_TRABAJO/DATA/CHELSA/IBERIA_BIOCLIM_1980_2021_LAEA.tif"
 
 if (!dir.exists(out_clim_path)) dir.create(out_clim_path, recursive = TRUE)
@@ -63,6 +63,7 @@ get_climatology_iberia <- function(subfolder, prefix, is_temp = FALSE) {
 
     # Guardar archivo intermedio
     out_name <- file.path(out_clim_path, paste0(prefix, "_", sprintf("%02d", m), ".tif"))
+    m_avg <- project(m_avg, "EPSG:3035")
     writeRaster(m_avg, out_name, overwrite=TRUE)
     climatology_list[[m]] <- m_avg
     cat(" OK.")
@@ -131,7 +132,7 @@ tmin_clim <- get_climatology_iberia("TMIN", "tmin_clim", is_temp = TRUE)
 
 # B. Calcular 19 Biovars en WGS84
 cat("\n--- Calculando Biovars (Procesamiento en paralelo) ---\n")
-n_cores <-10
+n_cores <- 10
 bioclim_wgs84 <- biovars_terra(
   prec = pr_clim, tmin = tmin_clim, tmax = tmax_clim,
   cores = n_cores,
