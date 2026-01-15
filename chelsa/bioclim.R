@@ -6,8 +6,8 @@ library(parallel)
 
 # --- 1. CONFIGURACIÓN DE RUTAS ---
 base_path     <- "C:/A_TRABAJO/DATA/CHELSA/MONTHLY_1980_2022"
-out_clim_path <- "C:/A_TRABAJO/DATA/CHELSA/CLIMATOLOGIAS_IBERIA"
-shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Iberia_1km_grid_final.shp"
+out_clim_path <- "C:/A_TRABAJO/DATA/CHELSA/CLIMATOLOGIAS_IBERIAkk"
+shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Export_Output.shp"
 output_final  <- "C:/A_TRABAJO/DATA/CHELSA/IBERIA_BIOCLIM_1980_2021_LAEA.tif"
 
 if (!dir.exists(out_clim_path)) dir.create(out_clim_path, recursive = TRUE)
@@ -74,6 +74,17 @@ get_climatology_iberia <- function(subfolder, prefix, is_temp = FALSE) {
   return(rast(climatology_list))
 }
 
+
+# =========================================================================
+# 5. EJECUCIÓN DEL FLUJO DE TRABAJO
+# =========================================================================
+
+# A. Generar Climatologías mensuales (12 tifs por variable)
+pr_clim   <- get_climatology_iberia("PR", "pr_clim", is_temp = FALSE)
+tmax_clim <- get_climatology_iberia("TMAX", "tmax_clim", is_temp = TRUE)
+tmin_clim <- get_climatology_iberia("TMIN", "tmin_clim", is_temp = TRUE)
+
+
 # =========================================================================
 # 4. FUNCIÓN: BIOCLIM VARIABLE CALCULATOR (TERRA OPTIMIZED)
 # =========================================================================
@@ -120,15 +131,6 @@ biovars_terra <- function(prec, tmin, tmax, filename = "", ...) {
 
   return(app(s, calc_bio, filename = filename, ...))
 }
-
-# =========================================================================
-# 5. EJECUCIÓN DEL FLUJO DE TRABAJO
-# =========================================================================
-
-# A. Generar Climatologías mensuales (12 tifs por variable)
-pr_clim   <- get_climatology_iberia("PR", "pr_clim", is_temp = FALSE)
-tmax_clim <- get_climatology_iberia("TMAX", "tmax_clim", is_temp = TRUE)
-tmin_clim <- get_climatology_iberia("TMIN", "tmin_clim", is_temp = TRUE)
 
 # B. Calcular 19 Biovars en WGS84
 cat("\n--- Calculando Biovars (Procesamiento en paralelo) ---\n")
