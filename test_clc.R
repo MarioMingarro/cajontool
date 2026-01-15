@@ -81,7 +81,7 @@ for (i in clases_a_procesar) {
 }
 
 reclass_lvl1 <- matrix(c(
-  1,  11, 1,  # Artificial
+  0,  11, 1,  # Artificial
   12, 22, 2,  # Agrícola
   23, 34, 3,  # Forestal y Semi-natural
   35, 39, 4,  # Humedales
@@ -89,7 +89,7 @@ reclass_lvl1 <- matrix(c(
 ), ncol = 3, byrow = TRUE)
 
 reclass_lvl2 <- matrix(c(
-  1,   2,  11, # Zonas urbanas (111-112)
+  0,   2,  11, # Zonas urbanas (111-112)
   3,   6,  12, # Zonas industriales, comerciales y de transportes (121-124)
   7,   9,  13, # Zonas de extracción minera, escombreras y construcción (131-133)
   10,  11, 14, # Zonas verdes urbanas y de recreo (141-142)
