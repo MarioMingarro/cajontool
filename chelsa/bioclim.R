@@ -1,42 +1,45 @@
-# =========================================================================
-# SCRIPT COMPLETO: CLIMATOLOGÍA E IBERIA BIOCLIM (CHELSA V2.1)
-# =========================================================================
 library(terra)
 library(parallel)
 
-# --- 1. CONFIGURACIÓN DE RUTAS ---
+
 base_path     <- "C:/A_TRABAJO/DATA/CHELSA/MONTHLY_1980_2022"
-out_clim_path <- "C:/A_TRABAJO/DATA/CHELSA/CLIMATOLOGIAS_IBERIAkk"
-shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Export_Output.shp"
-output_final  <- "C:/A_TRABAJO/DATA/CHELSA/IBERIA_BIOCLIM_1980_2021_LAEA.tif"
+out_clim_path <- "C:/A_TRABAJO/ALEJANDRA/1km/dynamic/climate/2006"
+shp_path      <- "C:/A_TRABAJO/ALEJANDRA/Grid/Iberia_1km_grid_final.shp"
+
+year_start <- 2000
+year_end   <- 2006
 
 if (!dir.exists(out_clim_path)) dir.create(out_clim_path, recursive = TRUE)
 
-# --- 2. PREPARACIÓN DE LÍMITES Y PROYECCIONES ---
-# Cargar límite original (LAEA) y proyectar a WGS84 para el recorte eficiente
 iberia_laea  <- vect(shp_path)
-# Usamos un CRS estándar WGS84 (el de CHELSA)
 wgs84_crs    <- "EPSG:4326"
 iberia_wgs84 <- project(iberia_laea, wgs84_crs)
 
-# =========================================================================
-# 3. FUNCIÓN: CLIMATOLOGÍA MENSUAL CON RECORTE Y SEGURIDAD
-# =========================================================================
 get_climatology_iberia <- function(subfolder, prefix, is_temp = FALSE) {
   path <- file.path(base_path, subfolder)
   files <- list.files(path, pattern = "\\.tif$", full.names = TRUE)
-  months <- as.numeric(gsub(".*_([0-9]{1,3})_[0-9]{4}_.*", "\\1", basename(files)))
 
-  cat("\n--- Procesando:", subfolder, "---\n")
+  months <- as.numeric(gsub(".*_([0-9]{1,2})_([0-9]{4})_.*", "\\1", basename(files)))
+  years  <- as.numeric(gsub(".*_([0-9]{1,2})_([0-9]{4})_.*", "\\2", basename(files)))
+
+  idx_years <- which(years >= year_start & years <= year_end)
+  files  <- files[idx_years]
+  months <- months[idx_years]
+
+  cat("\n--- Procesando:", subfolder, "(Años:", year_start, "-", year_end, ") ---")
   climatology_list <- list()
 
   for (m in 1:12) {
     cat("\nMes", m, ": ")
     m_files <- files[months == m]
-    monthly_stack <- list()
 
+    if(length(m_files) == 0) {
+      cat("No hay archivos para el mes", m)
+      next
+    }
+
+    monthly_stack <- list()
     for (f in seq_along(m_files)) {
-      # Intentar cargar y recortar (protección contra archivos corruptos)
       r_crop <- try({
         r <- rast(m_files[f])
         crop(r, iberia_wgs84, snap = "near")
@@ -48,48 +51,28 @@ get_climatology_iberia <- function(subfolder, prefix, is_temp = FALSE) {
         monthly_stack[[length(monthly_stack) + 1]] <- r_crop
       }
     }
-
-    # Promediar años del mes 'm'
     s <- rast(monthly_stack)
     m_avg <- mean(s, na.rm = TRUE)
-    m_avg <- mask(m_avg, iberia_wgs84) # Aplicar máscara de la costa
-
-
-    if (is_temp) {
-      m_avg <- m_avg - 273.15
-    } else {
-      m_avg <- m_avg
-    }
-
-    # Guardar archivo intermedio
+    m_avg <- mask(m_avg, iberia_wgs84)
+    if (is_temp) { m_avg <- m_avg - 273.15 }
     out_name <- file.path(out_clim_path, paste0(prefix, "_", sprintf("%02d", m), ".tif"))
     m_avg <- project(m_avg, "EPSG:3035")
     writeRaster(m_avg, out_name, overwrite=TRUE)
-    climatology_list[[m]] <- m_avg
-    cat(" OK.")
 
-    # Limpieza de temporales para evitar saturación de disco/RAM
+    climatology_list[[m]] <- m_avg
     tmpFiles(remove = TRUE)
   }
   return(rast(climatology_list))
 }
 
-
-# =========================================================================
-# 5. EJECUCIÓN DEL FLUJO DE TRABAJO
-# =========================================================================
-
-# A. Generar Climatologías mensuales (12 tifs por variable)
-pr_clim   <- get_climatology_iberia("PR", "pr_clim", is_temp = FALSE)
-tmax_clim <- get_climatology_iberia("TMAX", "tmax_clim", is_temp = TRUE)
-tmin_clim <- get_climatology_iberia("TMIN", "tmin_clim", is_temp = TRUE)
+# --- EJECUCIÓN ---
+pr_clim   <- get_climatology_iberia("PR", "pr_", is_temp = FALSE)
+tmax_clim <- get_climatology_iberia("TMAX", "tx_", is_temp = TRUE)
+tmin_clim <- get_climatology_iberia("TMIN", "tn_", is_temp = TRUE)
 
 
-# =========================================================================
-# 4. FUNCIÓN: BIOCLIM VARIABLE CALCULATOR (TERRA OPTIMIZED)
-# =========================================================================
 biovars_terra <- function(prec, tmin, tmax, filename = "", ...) {
-  s <- c(prec, tmin, tmax) # stack de 36 capas
+  s <- c(prec, tmin, tmax)
 
   calc_bio <- function(x) {
     if (all(is.na(x))) return(rep(NA, 19))
@@ -132,7 +115,7 @@ biovars_terra <- function(prec, tmin, tmax, filename = "", ...) {
   return(app(s, calc_bio, filename = filename, ...))
 }
 
-# B. Calcular 19 Biovars en WGS84
+
 cat("\n--- Calculando Biovars (Procesamiento en paralelo) ---\n")
 n_cores <- 10
 bioclim_wgs84 <- biovars_terra(
@@ -141,26 +124,20 @@ bioclim_wgs84 <- biovars_terra(
   wopt = list(datatype = "FLT4S")
 )
 
-# 1. Primero proyectamos el stack completo (más eficiente)
 cat("\n--- Proyectando a ETRS89 LAEA ---")
 bioclim_laea <- project(bioclim_wgs84, crs(iberia_laea), method = "bilinear")
 
-# 2. Definimos los nombres de las capas
 nombres_bio <- paste0("BIO", 1:19)
 names(bioclim_laea) <- nombres_bio
 
-# 3. Guardamos cada capa por separado en un bucle
+
 cat("\n--- Guardando 19 archivos individuales ---")
 
-# Creamos una carpeta específica para las capas individuales si no existe
-out_indiv_path <- "C:/A_TRABAJO/DATA/CHELSA/BIOCLIMAS_INDIVIDUALES"
-if (!dir.exists(out_indiv_path)) dir.create(out_indiv_path, recursive = TRUE)
+
+out_indiv_path <- "C:/A_TRABAJO/ALEJANDRA/1km/dynamic/climate/2006"
 
 for (i in 1:19) {
-  # Construir la ruta de salida para cada BIO
   file_out <- file.path(out_indiv_path, paste0(nombres_bio[i], ".tif"))
-
-  # Guardar la capa i del stack
   writeRaster(bioclim_laea[[i]],
               filename = file_out,
               overwrite = TRUE,
@@ -169,4 +146,3 @@ for (i in 1:19) {
   cat("\nGuardado:", nombres_bio[i])
 }
 
-cat("\n\n¡PROCESO FINALIZADO! Los 19 archivos están en:", out_indiv_path)
